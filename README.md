@@ -1,13 +1,18 @@
-# Reproduce Experiments
+# AsymCache Artifact
+
+Please refer to [[PROOF] properties of order-preserving rule.pdf](./[PROOF]%20properties%20of%20order-preserving%20rule.pdf) for the missed proof in Section 4.4.
 
 ## 1. Description
 
+This repository is the artifact of AsymCache. Currently, the code has not been fully arranged, but is still able to reproduce all the main results in the paper.
+
+Our modified vllm is a submodule in this repository, which is a public repo at: https://gitee.com/spiritedawaycn/vllm-dev.git
+
 ## 2. Installation
 
-To clone this repository together with the vLLM submodule, use:
+Please download this repository, and change your directory using:
 
 ```bash
-git clone --recursive https://gitee.com/cyllyl/multi-segment-attention.git
 cd multi-segment-attention
 ```
 
@@ -15,6 +20,11 @@ If the repository has already been cloned without submodules, initialize the sub
 
 ```bash
 git submodule update --init --recursive
+```
+
+Alternatively, you can manually clone our modifed vllm repo using:
+```bash
+git clone https://gitee.com/spiritedawaycn/vllm-dev.git
 ```
 
 After this step, the vllm/ directory should not be empty.
@@ -162,3 +172,27 @@ final_bfcl_24_summary.csv
 ```
 
 ## 4. Plot Figures
+
+Before plotting figure, please first change your directory to:
+
+```bash
+cd ${WORKSPACE}/plots
+```
+
+### End-to-end Results (Figure 11 & 12)
+
+Please run following command:
+```bash
+python --path ${WORKSPACE}/results/summary.csv --div low  # Figure 11
+python --path ${WORKSPACE}/results/summary.csv --div high # Figure 12
+```
+
+### Hyper-parameter Sensitivity (Figure 14)
+
+
+
+### Integration with Agentic System (Figure 15)
+
+Please first check whether the data path has been correctly set in `plot-agent.py` (line 15).
+
+Then, run `plot-agent.py` to plot figure (Figure 15 in the paper).
