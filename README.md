@@ -268,6 +268,14 @@ python --path ${WORKSPACE}/results/summary.csv --div high # Figure 12
 Please directly check corresponding csv file for the data (the `avg_ttft`, `avg_tpot` and `avg_hit_rate` columns).
 
 ### Hyper-parameter Sensitivity (Figure 14)
+To make the plotting script identify which rows belong to which subplot, we provide a preprocessing script:
+
+```bash
+python build_summary_sense.py --input /path/to/ablation.csv --output summary-sense.csv
+```
+
+After generating summary-sense.csv, please manually check and complete the baseline rows used for comparison. Specifically, for each subplot, the corresponding LRU and MWF baseline results under the same workload configuration should be copied and pasted into the appropriate rows below the corresponding subplot marker.
+
 Please first check whether the data path has been correctly set in `plot_sense.py` (line 13).
 
 Then, run `plot_sense.py` to plot figure (Figure 14 in the paper).
