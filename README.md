@@ -2,6 +2,15 @@
 
 ## 1. Description
 
+Environment dependencies:
+
+```text
+CUDA: 12.8
+CPU: x86_64
+GPU: 8 x H20
+PyTorch: 2.7.0
+```
+
 ## 2. Installation
 
 To clone this repository together with the vLLM submodule, use:
@@ -47,7 +56,6 @@ g++ -O3 -Wall -shared -std=c++17 -fPIC \
   c_set.cpp \
   -o c_set$(python3-config --extension-suffix)
 ```
-
 
 ## 3. Run Experiments
 
@@ -161,4 +169,73 @@ The summary CSV is written to:
 final_bfcl_24_summary.csv
 ```
 
-## 4. Plot Figures
+## 4. Hyper-parameter Sensitivity
+
+Switch to the `simulator` branch and run the experiments:
+
+```bash
+cd /path/to/vllm-dev
+git switch simulator
+cd /path/to/vllm-dev/examples/test/e2e-exp/hyper_parameter
+```
+
+Each line in `ablation_config.txt` follows this format:
+
+```text
+<qps> <set> <grad> <minexp_b> <minexp_alpha> <minexp_beta> <dataset> <frac>
+```
+
+For example:
+
+```text
+0.02 0.6x 40 -6.456619e+02 6.257895e+04 1.564474e+03 longbench 5
+```
+
+Before running, please check the hard-coded paths and machine-specific settings in `run_ab_one.sh`.
+
+Important variables include:
+
+```bash
+export CSET_DIR=/path/to/vllm/csrc/c_set
+BASE_DIR="/path/to/ablation_results"
+PY_VLLM="/path/to/conda/env/bin/python3"
+MODEL="meta-llama/Llama-3.1-8B-Instruct"
+GPU="0"
+PORT=8050
+VLLM_PORT=12345
+```
+
+Please update these paths according to your local environment. Then, run:
+
+```bash
+bash run_ab_sweep.sh
+```
+
+For each configuration, `run_ab_one.sh` creates one output folder under:
+
+```text
+ablation_results/
+```
+
+The folder naming format is:
+
+```text
+LongBench_300_overall_qps<qps>_frac<frac>_set<set>_grad<grad>_gamma
+```
+
+For example:
+
+```text
+LongBench_300_overall_qps0.02_frac5_set0.6x_grad40_gamma
+LongBench_300_overall_qps0.02_frac10_set1x1y_grad50_gamma
+```
+
+The provided configuration file contains 20 experiment settings, so the final result should contain 20 folders.
+
+Finally, run:
+
+```bash
+python result_analyse.py
+```
+
+## 5. Plot Figures
