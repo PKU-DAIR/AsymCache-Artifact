@@ -1,0 +1,6 @@
+numpy
+torch==2.7.0
+ninja
+packaging
+matplotlib
+seaborn
