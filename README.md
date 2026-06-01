@@ -264,9 +264,6 @@ python --path ${WORKSPACE}/results/summary.csv --div low  # Figure 11
 python --path ${WORKSPACE}/results/summary.csv --div high # Figure 12
 ```
 
-### Ablation Study (Table 2)
-Please directly check corresponding csv file for the data (the `avg_ttft`, `avg_tpot` and `avg_hit_rate` columns).
-
 ### Hyper-parameter Sensitivity (Figure 14)
 To make the plotting script identify which rows belong to which subplot, we provide a preprocessing script:
 
