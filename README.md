@@ -187,9 +187,13 @@ python --path ${WORKSPACE}/results/summary.csv --div low  # Figure 11
 python --path ${WORKSPACE}/results/summary.csv --div high # Figure 12
 ```
 
+### Ablation Study (Table 2)
+Please directly check corresponding csv file for the data (the `avg_ttft`, `avg_tpot` and `avg_hit_rate` columns).
+
 ### Hyper-parameter Sensitivity (Figure 14)
+Please first check whether the data path has been correctly set in `plot_sense.py` (line 13).
 
-
+Then, run `plot_sense.py` to plot figure (Figure 14 in the paper).
 
 ### Integration with Agentic System (Figure 15)
 
