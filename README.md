@@ -179,13 +179,20 @@ The summary CSV is written to:
 final_bfcl_24_summary.csv
 ```
 
-### (3) traceA experiments
+### (3) traceA workload
+
+For the five vLLM-based baselines, switch to the hotprefix-sim branch:
+
+```bash
+cd /path/to/vllm-dev
+git switch hotprefix-sim
+cd /path/to/vllm-dev/examples/test/e2e-exp/Qwen_trace
+```
 
 For each QPS, compute the MWF parameters with `CDF.py` first:
 
 ```bash
-python3 CDF.py traceA_2k_final_workloads/tracea_2k_cache_pressure_relaxed_2100.jsonl \
-    --target-qps 0.2 --percentile 75 --no-plot
+python CDF.py /path/to/tracea_2k_cache_pressure_relaxed_2100.jsonl --target-qps 0.2 --percentile 75
 ```
 
 The numeric line in the output is:
@@ -210,6 +217,25 @@ bash run_traceA_2100.sh --all-policies --model-size 70B --qps 0.2
 ```
 
 Repeat for `--target-qps 0.25` and `--target-qps 0.3`.
+
+### (4) SGLang baseline
+
+The SGLang baseline only needs to be evaluated for LongBench, LooGLE, and traceA. 
+
+Before running the experiments, update `env.sh` according to the local machine. In particular, please check `SGLANG_ROOT`, `DATA_ROOT`, model paths. Make sure that the workload files are available, and run the scripts inside the SGLang Conda environment.
+
+To run all SGLang baseline experiments:
+
+```bash
+cd /path/to/sglang-dev/workload-exp/exp-reproduce
+bash run_all.sh
+```
+
+The script runs six stages sequentially: If one stage fails, the remaining stages will still be executed, and the script will report the failed stages. All outputs are written to:
+
+```text
+RESULTS_ROOT/<dataset>/<8B|70B>/
+```
 
 ## 4. Hyper-parameter Sensitivity
 
