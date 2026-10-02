@@ -318,11 +318,22 @@ cd ${WORKSPACE}/plots
 
 Please run following command:
 ```bash
-python --path ${WORKSPACE}/results/summary.csv --div low  # Figure 11
-python --path ${WORKSPACE}/results/summary.csv --div high # Figure 12
+python plot-e2e.py --path ${WORKSPACE}/results/summary.csv --div low  # Figure 11
+python plot-e2e.py --path ${WORKSPACE}/results/summary.csv --div high # Figure 12
 ```
 
-### Hyper-parameter Sensitivity (Figure 14)
+### Qwen Dataset Results (Figure 13)
+Currently, the end-to-end result tables are stored separately under the vLLM and SGLang paths. Please manually merge them into a single CSV file by concatenating the rows.
+
+Set the `path` argument of `load_data_tracea` in [plot-tracea.py](plots/plot-tracea.py) to the merged CSV file, then run:
+
+```bash
+python plot-tracea.py
+```
+
+A one-command plotting workflow will be available soon.
+
+### Hyper-parameter Sensitivity (Figure 15)
 To make the plotting script identify which rows belong to which subplot, we provide a preprocessing script:
 
 ```bash
@@ -333,10 +344,10 @@ After generating summary-sense.csv, please manually check and complete the basel
 
 Please first check whether the data path has been correctly set in `plot_sense.py` (line 13).
 
-Then, run `plot_sense.py` to plot figure (Figure 14 in the paper).
+Then, run `plot_sense.py` to plot figure (Figure 15 in the paper).
 
-### Integration with Agentic System (Figure 15)
+### Integration with Agentic System (Figure 16)
 
 Please first check whether the data path has been correctly set in `plot-agent.py` (line 15).
 
-Then, run `plot-agent.py` to plot figure (Figure 15 in the paper).
+Then, run `plot-agent.py` to plot figure (Figure 16 in the paper).

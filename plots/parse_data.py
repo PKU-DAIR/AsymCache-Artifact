@@ -23,19 +23,24 @@ def load_data(path = '../results/summary.csv', v2=False):
         # ignore cases
         first_col_value = first_col_value.lower()
         
+        if 'hotprefix' in first_col_value:
+            continue
+        
         if v2 and first_col_value.startswith('300_'):
             first_col_value = first_col_value[4:]
         
         if not (first_col_value.startswith('longbench_') or first_col_value.startswith('loogle_')):
             continue
-        
+        if first_col_value.endswith(" new"):
+            first_col_value = first_col_value[:-4]
         if first_col_value.endswith('.jsonl'):
             first_col_value = first_col_value[:-6]
         
         tokens = first_col_value.split('_')
         dataset_name = tokens[0].lower()
         model = tokens[-1].strip().upper()
-        if v2 and not model in ['8B', '70B'] and len(tokens) >= 6:
+        if v2 and (not model in ['8B', '70B']) and len(tokens) >= 6:
+            # print(f"[line {index}] 非标准模型名称: {first_col_value}")
             model = tokens[5].strip().upper()
         
         entry = dataset[dataset_name][model]
@@ -75,6 +80,8 @@ def load_data(path = '../results/summary.csv', v2=False):
         qps = float(match.group(1))
         # print(f"[line {index}] 提取到 qps: {qps} from {first_col_value}")
         
+        
+        
         if qps in entry:
             print(f"[line {index}] 警告: 重复的 qps 条目: {first_col_value} (qps={qps})")
             raise ValueError(f"重复的 qps 条目: {first_col_value} (qps={qps})")
@@ -98,7 +105,170 @@ def load_data(path = '../results/summary.csv', v2=False):
         entry[qps] = res
     return dataset
 
-def load_data_sense(path = './data/实验结果.csv'):
+def load_new_data(dataset, path_prefix='./data/summary-'):
+    for apporach in ('sglang', 'hotprefix'):
+        df = pd.read_csv(f"{path_prefix}{apporach}.csv")
+        for index, row in df.iterrows():
+            first_col_value = str(row[0]).lower()
+            # Process each row as needed
+            
+            pattern = r'300_(longbench|loogle)_(sglang_fcfs|hotprefix)_(8b|70b)_overall_qps(\d+\.\d+)_frac(\d+)_cv0.25_gamma'
+            match = re.search(pattern, first_col_value)
+            if not match:
+                print(f"[line {index}] 无法从字符串中提取信息: {first_col_value}")
+                continue
+            dataset_name, _, model_size, qps, frac = match.groups()
+            
+            model_size = model_size.upper()
+            qps = float(qps)
+            
+            res = {}
+                    
+            ttft, tpot = float(row[6]), float(row[7])
+            hit_items = int(row[10])
+            hit_rate = float(row[13]) if row[13][-1] != '%' else float(row[13][:-1]) / 100
+            total_time, tpt = float(row[16]), float(row[17])
+            
+            res["ttft"] = ttft
+            res["tpot"] = tpot
+            res["hit_items"] = hit_items
+            res["hit_rate"] = hit_rate
+            res["total_time"] = total_time
+            res["tpt"] = tpt
+            
+            print(f"Loaded line {index}: {first_col_value} {frac} ({res})")
+            
+            if dataset_name not in dataset:
+                dataset[dataset_name] = {}
+            if model_size not in dataset[dataset_name]:
+                dataset[dataset_name][model_size] = {}
+            if frac not in dataset[dataset_name][model_size]:
+                dataset[dataset_name][model_size][frac] = {}
+            if apporach not in dataset[dataset_name][model_size][frac]:
+                dataset[dataset_name][model_size][frac][apporach] = {}
+            
+            entry = dataset[dataset_name][model_size][frac][apporach]
+            
+            if qps in entry:
+                print(f"[line {index}] Duplicate qps entry: {qps}")
+                continue
+            entry[qps] = res
+    
+    return dataset
+
+def load_data_tracea(path='./data/tracea.csv'):
+    data_file = path
+    df = pd.read_csv(data_file, header=None)
+
+    dataset = {
+        "tracea": {
+            "8B": {},
+            "70B": {},
+        },
+    }
+    
+    for index, row in df.iterrows():
+        first_col_value = str(row[0])
+        
+        # ignore cases
+        first_col_value = first_col_value.lower()
+        
+        if not first_col_value.startswith('tracea'):
+            continue
+        # Process the row for tracea dataset
+        ele = first_col_value.split('_')
+        apporach, model_size, qps = ele[3], ele[4].upper(), float(ele[5][3:])
+        
+        if apporach == 'pensieve':
+            apporach = 'pensi'
+        elif apporach == 'mwf':
+            apporach = 'minexp'
+        
+        
+        if model_size not in dataset["tracea"]:
+            dataset["tracea"][model_size] = {}
+        if apporach not in dataset["tracea"][model_size]:
+            dataset["tracea"][model_size][apporach] = {}
+        if qps not in dataset["tracea"][model_size][apporach]:
+            dataset["tracea"][model_size][apporach][qps] = {}
+
+        entry = dataset["tracea"][model_size][apporach]
+
+        ttft, tpot = float(row[3]), float(row[10])
+        hit_items = int(row[13])
+        hit_rate = float(row[7]) if row[7][-1] != '%' else float(row[7][:-1]) / 100
+        total_time, tpt = float(row[16]), float(row[17])
+
+        res = {}
+        
+        res["ttft"] = ttft
+        res["tpot"] = tpot
+        res["hit_items"] = hit_items
+        res["hit_rate"] = hit_rate
+        res["total_time"] = total_time
+        res["tpt"] = tpt
+        
+        print(f"[line {index}] model_size: {model_size}, approach: {apporach}, qps: {qps}. Processed entry: {res}")
+        entry[qps] = res
+    
+    return dataset
+
+def load_data_mixed(path='./data/data-mixed.csv'):
+    data_file = path
+    df = pd.read_csv(data_file, header=None)
+
+    dataset = {
+        "mixed": {
+            "8B": {},
+            "70B": {},
+        },
+    }
+    
+    for index, row in df.iterrows():
+        first_col_value = str(row[0])
+        
+        # ignore cases
+        first_col_value = first_col_value.lower()
+        
+        if not first_col_value.startswith('bfcl_tracea'):
+            continue
+        # Process the row for tracea dataset
+        ele = first_col_value.split('_')
+        apporach, model_size = ele[4], ele[5].upper()
+        
+        if apporach == 'pensieve':
+            apporach = 'pensi'
+        elif apporach == 'mwf':
+            apporach = 'minexp'
+        
+        
+        if model_size not in dataset["mixed"]:
+            dataset["mixed"][model_size] = {}
+        if apporach not in dataset["mixed"][model_size]:
+            dataset["mixed"][model_size][apporach] = {}
+
+        entry = dataset["mixed"][model_size]
+
+        ttft, tpot = float(row[3]), float(row[10])
+        hit_items = int(row[13])
+        hit_rate = float(row[7]) if row[7][-1] != '%' else float(row[7][:-1]) / 100
+        total_time, tpt = float(row[16]), float(row[17])
+
+        res = {}
+        
+        res["ttft"] = ttft
+        res["tpot"] = tpot
+        res["hit_items"] = hit_items
+        res["hit_rate"] = hit_rate
+        res["total_time"] = total_time
+        res["tpt"] = tpt
+        
+        print(f"[line {index}] model_size: {model_size}, approach: {apporach}. Processed entry: {res}")
+        entry[apporach] = res
+    
+    return dataset
+
+def load_data_sense(path = './data/实验结果.xlsx'):
     data_file = path
     df = pd.read_excel(data_file, sheet_name='sense-sheet', header=None)
     
@@ -156,9 +326,9 @@ def load_data_sense(path = './data/实验结果.csv'):
         
     return dataset2
 
-def load_data_bfcl(path = '../vllm-dev/examples/test/e2e-exp/reproduce/final_bfcl_24_summary.csv'):
+def load_data_bfcl(path = './data/实验结果.xlsx'):
     data_file = path
-    df = pd.read_csv(data_file, header=None)
+    df = pd.read_excel(data_file, sheet_name='BFCLv4', header=None)
     pattern = r'2x_(.*)_qps(\d+\.\d+)'
     
     dataset = {
