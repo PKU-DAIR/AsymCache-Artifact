@@ -179,6 +179,38 @@ The summary CSV is written to:
 final_bfcl_24_summary.csv
 ```
 
+### (3) traceA experiments
+
+For each QPS, compute the MWF parameters with `CDF.py` first:
+
+```bash
+python3 CDF.py traceA_2k_final_workloads/tracea_2k_cache_pressure_relaxed_2100.jsonl \
+    --target-qps 0.2 --percentile 75 --no-plot
+```
+
+The numeric line in the output is:
+
+```text
+<percentile> <minexp-b> <minexp-alpha> <minexp-beta> <minexp-a>
+```
+
+Fill the values into `run_traceA_2100.sh`:
+
+```text
+DEFAULT_MINEXP_B=...
+DEFAULT_MINEXP_ALPHA=...
+DEFAULT_MINEXP_BETA=...
+```
+
+Then run:
+
+```bash
+bash run_traceA_2100.sh --all-policies --model-size 8B --qps 0.2
+bash run_traceA_2100.sh --all-policies --model-size 70B --qps 0.2
+```
+
+Repeat for `--target-qps 0.25` and `--target-qps 0.3`.
+
 ## 4. Hyper-parameter Sensitivity
 
 Switch to the `simulator` branch and run the experiments:

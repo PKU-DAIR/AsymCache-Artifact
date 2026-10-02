@@ -1,0 +1,21 @@
+# Ignore experiment results in sglang-dev
+sglang-dev/other/
+sglang-dev/exp_results/
+sglang-dev/exp_results_bnp/
+sglang-dev/exp_results_bnporg/
+sglang-dev/exp_results_bslist/
+sglang-dev/exp_results_noblock/
+sglang-dev/exp_results_noblock_buggy/
+sglang-dev/exp_results_nopadding/
+sglang-dev/exp_results_ogbsl/
+sglang-dev/exp_results_ogbsl2/
+sglang-dev/exp_results_ogbsl3/
+sglang-dev/exp_results_ogbsl4/
+sglang-dev/exp_results_ogbsl5/
+sglang-dev/exp_results_pod/
+sglang-dev/exp_results_pod_buggy/
+sglang-dev/exp_results_tracea_sca/
+sglang-dev/final_exp_results_ogbsl/
+sglang-dev/new_exp_results_ogbsl/
+sglang-dev/newnew_exp_results_ogbsl/
+sglang-dev/exp_result_70b5_other1/
