@@ -67,6 +67,47 @@ g++ -O3 -Wall -shared -std=c++17 -fPIC \
   -o c_set$(python3-config --extension-suffix)
 ```
 
+The SGLang experiments use the customized source in `sglang-dev/`. Set the
+paths relative to the repository root:
+
+```bash
+export REPO=/path/to/Multi-Segment-Attention
+export VLLM_ROOT="${REPO}/vllm"
+export SGLANG_ROOT="${REPO}/sglang-dev"
+```
+
+Activate the SGLang environment. The original experiments used Python 3.10:
+
+```bash
+conda create -n sglang-pod python=3.10 -y
+conda activate sglang-pod
+python -m pip install -r "${SGLANG_ROOT}/requirements.txt"
+```
+
+Install `pod_attn` and build the local vLLM package in this environment by
+following the preceding steps. Then install the customized SGLang package:
+
+```bash
+cd "${SGLANG_ROOT}"
+python -m pip install -e ./python
+```
+
+SGLang imports the vLLM FlashAttention extension through
+`python/sglang/vllm_flash_attn_org`. Create a symbolic link to the extension
+that was built in the local vLLM source tree:
+
+```bash
+ln -s "${VLLM_ROOT}/vllm/vllm_flash_attn" \
+  "${SGLANG_ROOT}/python/sglang/vllm_flash_attn_org"
+```
+
+The resulting link inside the cloned repository should be:
+
+```text
+Multi-Segment-Attention/sglang-dev/python/sglang/vllm_flash_attn_org
+  -> Multi-Segment-Attention/vllm/vllm/vllm_flash_attn
+```
+
 ## 3. Run Experiments
 
 ### (1) LongBench and LooGLE
