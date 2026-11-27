@@ -4,15 +4,18 @@ import numpy as np
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 import matplotlib.patches as mpatches
 import argparse
+from pathlib import Path
 
-from parse_data import load_data
+from parse_data import load_data, validate_e2e
+from plot_common import ROOT, RESULTS, save_figure
 from plot_hist2 import plot_grouped_bar_chart
 from my_colors import *
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Plotting script for E2E evaluation results")
     parser.add_argument('--div', choices=['low', 'high'], default='low', help="dispersion level (default: low)")
-    parser.add_argument('--path', type=str, default='../results/summary.csv', help="path to the data file (default: ../results/summary.csv)")
+    parser.add_argument('--path', type=str, default=str(RESULTS / 'summary/e2e.csv'), help="path to the merged end-to-end result table")
+    parser.add_argument('--output-dir', type=Path, default=ROOT / 'figures')
     return parser.parse_args()
 
 args = parse_args()
@@ -24,6 +27,8 @@ if SPLIT_MODE == 'model':
     figure_model = "70B"
 elif SPLIT_MODE == 'frac':
     figure_frac = '5' if args.div == 'low' else '10'
+
+validate_e2e(dataset, figure_frac)
 
 # 1. 设置全局字体为Calibri
 mpl.rcParams['font.family'] = 'Calibri'
@@ -54,11 +59,11 @@ axes = []
 # 遍历每一行
 for row in range(3):
     row_axes = []
-    
+
     # 第一列：嵌套GridSpec实现2:1分割且无缝
     # 创建内层GridSpec（1行2列，无间距）
     inner_gs1 = GridSpecFromSubplotSpec(
-        1, 2, 
+        1, 2,
         subplot_spec=outer_gs[row, 0],
         width_ratios=[1.8, 1],
         wspace=0  # 无缝连接
@@ -69,7 +74,7 @@ for row in range(3):
     else:
         ax_right = fig.add_subplot(inner_gs1[0, 1], sharey=ax_left)
     row_axes.extend([ax_left, ax_right])
-    
+
     # 第二列：同样嵌套GridSpec实现2:1分割且无缝
     inner_gs2 = GridSpecFromSubplotSpec(
         1, 2,
@@ -83,16 +88,16 @@ for row in range(3):
     else:
         ax_right = fig.add_subplot(inner_gs2[0, 1], sharey=ax_left)
     row_axes.extend([ax_left, ax_right])
-    
+
     # 第三列：直接创建子图
     ax3 = fig.add_subplot(outer_gs[row, 2])
     row_axes.append(ax3)
-    
+
     # 第四列：直接创建子图
     ax4 = fig.add_subplot(outer_gs[row, 3])
-    
+
     row_axes.append(ax4)
-    
+
     axes.append(row_axes)
 
 
@@ -101,11 +106,11 @@ y_label_list = ['TTFT (s)', 'TPOT (ms)', 'Hit Rate (%)']
 for row in range(3):
     for col_idx in range(6):
         ax = axes[row][col_idx]
-        
+
         # 隐藏顶部和右侧边框
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        
+
         # 设置x轴刻度（除最下方行外隐藏标签）
         if row < 2:  # 不是最下方行
             ax.tick_params(axis='x', labelbottom=False)
@@ -119,11 +124,11 @@ for row in range(3):
         #         ax.set_xlabel('X Axis (Column 3)', fontweight='bold')
         #     elif col_idx == 5:  # 第四列
         #         ax.set_xlabel('X Axis (Column 4)', fontweight='bold')
-        
+
         # 设置y轴标签（只在每行的第一个子图显示）
         if col_idx == 0:  # 第一列左子图
             ax.set_ylabel(y_label_list[row], fontweight='bold')
-        
+
         # 设置标题（示例）
         # if col_idx == 0:
         #     ax.set_title(f'Row {row+1}, Left Part', fontsize=11, fontweight='bold')
@@ -145,13 +150,13 @@ def merge_split_axes(left_ax, right_ax, split_line_visible=True):
     """
     # 移除左图的右侧边框
     left_ax.spines['right'].set_visible(False)
-    
+
     # 移除右图的左侧边框，显示右侧边框用于第二个y轴
     right_ax.spines['left'].set_visible(split_line_visible)
     right_ax.spines['right'].set_visible(True)
     right_ax.yaxis.set_ticks_position('right')
     right_ax.yaxis.set_label_position('right')
-    
+
     # 设置右侧y轴标签
     right_ax.set_ylabel('Y Axis Right', fontweight='bold', rotation=-90, labelpad=15)
 
@@ -166,16 +171,16 @@ for row in range(3):
 for row in range(3):
     # 第一列右侧子图（已经设置了右侧标签）
     axes[row][1].set_ylabel('')
-    
+
     # 第二列右侧子图
     axes[row][3].set_ylabel('')
-    
+
     # 第三列和第四列（不是最左侧）隐藏y轴标签
     # 只在第一行设置标题，其他行隐藏
-    
+
     axes[row][4].set_ylabel('')
     axes[row][5].set_ylabel('')
-    
+
     # if row != 0:
     #     axes[row][4].set_ylabel('')
     #     axes[row][5].set_ylabel('')
@@ -199,7 +204,7 @@ for row in range(3):
         else:  # 左侧子图
             ax.tick_params(axis='y', direction='inout', pad=-1, left=False, right=False)
             plt.setp(ax.get_yticklabels(), ha='right')
-        
+
         # 调整刻度标签字体大小
         plt.setp(ax.get_yticklabels(), fontsize=10)
         plt.setp(ax.get_xticklabels(), fontsize=10)
@@ -214,34 +219,34 @@ cache_leg_handles = [
 def plot_example_data(ax, row, col_idx):
     """示例绘图函数，您需要根据实际情况修改"""
     # x = np.linspace(0, 10, 100)
-    
+
     # if col_idx == 0:  # 第一列左图
     #     y = np.sin(x) * (row + 1)
     #     ax.plot(x, y, 'b-', linewidth=1.5)
     #     ax.set_ylim(-3, 3)
-        
+
     # elif col_idx == 1:  # 第一列右图（共享y轴，但使用不同刻度）
     #     # 这里可以设置不同的数据范围和刻度
     #     y = np.cos(x) * (row + 1) * 10
     #     ax.plot(x, y, 'r-', linewidth=1.5)
     #     ax.set_ylim(-30, 30)
-        
+
     # elif col_idx == 2:  # 第二列左图
     #     y = np.exp(-x/3) * (row + 1)
     #     ax.plot(x, y, 'g-', linewidth=1.5)
-        
+
     # elif col_idx == 3:  # 第二列右图
     #     y = np.log(x + 1) * (row + 1) * 5
     #     ax.plot(x, y, 'm-', linewidth=1.5)
-        
+
     # elif col_idx == 4:  # 第三列
     #     y = np.random.randn(100).cumsum() + row * 10
     #     ax.plot(x, y, 'c-', linewidth=1.5)
-        
+
     # elif col_idx == 5:  # 第四列
     #     y = np.sin(x + row) * np.exp(-x/5)
     #     ax.plot(x, y, 'y-', linewidth=1.5)
-    
+
     if SPLIT_MODE == 'model':
         frac = '5' if col_idx in [0, 1, 4] else '10'
         dataset_name = 'longbench' if col_idx < 4 else 'loogle'
@@ -250,59 +255,59 @@ def plot_example_data(ax, row, col_idx):
         dataset_name = 'longbench' if col_idx < 4 else 'loogle'
         model = "8B" if col_idx in [0, 1, 4] else "70B"
         frac = figure_frac
-    
+
     # print(data_in, dataset, model, frac)
-    
+
     try:
         data = dataset[dataset_name][model][frac]
     except KeyError as e:
         print(f"[ERROR] 无法找到数据: dataset={dataset_name}, model={model}, frac={frac}")
         return []
-    
+
     # print("Plotting row:", row, "col:", col_idx, "dataset:", dataset_name, "frac:", frac)
     plot_grouped_bar_chart(ax, data, row+1, col_idx+1)
-    
-    
+
+
     if SPLIT_MODE == 'frac':
         if col_idx in [0, 2]:
             ax.set_xlim(0.5, 2.5)
         if col_idx in [1, 3]:
             ax.set_xlim(0.55, 1.5)
-        
+
         # 逐图控制
         if frac == '5':
             if (row, col_idx) == (0, 0):
                 ax.set_ylim(0, 15)
             elif (row, col_idx) == (1, 0):
                 ax.set_ylim(0, 60)
-                
+
             elif (row, col_idx) == (0, 1):
                 ax.set_ylim(0, 650)
             elif (row, col_idx) == (1, 1):
                 ax.set_ylim(0, 800)
             elif (row, col_idx) == (2, 1):
                 ax.set_ylim(0, 65)
-                
+
             elif (row, col_idx) == (0, 2):
                 ax.set_ylim(0, 30)
             elif (row, col_idx) == (1, 2):
                 ax.set_ylim(0, 180)
-            
+
             elif (row, col_idx) == (0, 3):
                 ax.set_ylim(0, 1200)
             elif (row, col_idx) == (1, 3):
                 ax.set_ylim(0, 1400)
             elif (row, col_idx) == (2, 3):
                 ax.set_ylim(0, 65)
-                
+
             elif (row, col_idx) == (0, 4):
                 ax.set_ylim(0, 8)
             elif (row, col_idx) == (1, 4):
                 ax.set_ylim(0, 39)
             elif (row, col_idx) == (2, 4):
                 ax.set_ylim(0, 95)
-                
-            
+
+
             elif (row, col_idx) == (0, 5):
                 ax.set_ylim(0, 15)
             elif (row, col_idx) == (1, 5):
@@ -314,44 +319,44 @@ def plot_example_data(ax, row, col_idx):
                 ax.set_ylim(0, 15)
             elif (row, col_idx) == (1, 0):
                 ax.set_ylim(0, 60)
-                
+
             elif (row, col_idx) == (0, 1):
                 ax.set_ylim(0, 700)
             elif (row, col_idx) == (1, 1):
                 ax.set_ylim(0, 800)
             elif (row, col_idx) == (2, 1):
                 ax.set_ylim(0, 65)
-                
+
             elif (row, col_idx) == (0, 2):
                 ax.set_ylim(0, 30)
             elif (row, col_idx) == (1, 2):
                 ax.set_ylim(0, 180)
-            
+
             elif (row, col_idx) == (0, 3):
                 ax.set_ylim(0, 1300)
             elif (row, col_idx) == (1, 3):
                 ax.set_ylim(0, 1500)
             elif (row, col_idx) == (2, 3):
                 ax.set_ylim(0, 65)
-                
+
             elif (row, col_idx) == (0, 4):
                 ax.set_ylim(0, 9)
             elif (row, col_idx) == (1, 4):
                 ax.set_ylim(0, 65)
             elif (row, col_idx) == (2, 4):
                 ax.set_ylim(0, 95)
-                
-            
+
+
             elif (row, col_idx) == (0, 5):
                 ax.set_ylim(0, 27)
             elif (row, col_idx) == (1, 5):
                 ax.set_ylim(0, 240)
             elif (row, col_idx) == (2, 5):
                 ax.set_ylim(0, 95)
-        
+
     if row == 2 and col_idx in [1, 3, 4, 5]:
-        ax.legend(handles=cache_leg_handles, 
-                  loc='upper right', 
+        ax.legend(handles=cache_leg_handles,
+                  loc='upper right',
                   prop={'size': 9, 'style': 'italic'},  # 字体更小
                     labelspacing=0.1,        # 更紧密的垂直间距
                     handletextpad=0.1,       # 更小的水平间距
@@ -369,18 +374,22 @@ patches = []
 for approach, label in label_map.items():
     patch = mpatches.Patch(color=get_color_bool(approach, 1, False), label=label)
     patches.append(patch)
-fig.legend(handles=patches, loc='upper center', 
-           bbox_to_anchor=(0.5, 0.97), ncol=5, 
+fig.legend(handles=patches, loc='upper center',
+           bbox_to_anchor=(0.5, 0.97), ncol=7,
            fontsize=11,
-           framealpha=0.0,)
+           framealpha=0.0,
+           labelspacing=0.1,
+           handletextpad=0.2,
+           columnspacing=0.95,
+           borderpad=0.0)
 
-fig.text(0.23, 0.01, 'Llama3.1-8B + LongBench', 
+fig.text(0.23, 0.01, 'Llama3.1-8B + LongBench',
          ha='center', fontsize=12, fontweight='bold')
-fig.text(0.44, 0.01, 'Llama3.1-70B + LongBench', 
+fig.text(0.44, 0.01, 'Llama3.1-70B + LongBench',
          ha='center', fontsize=12, fontweight='bold')
-fig.text(0.64, 0.01, 'Llama3.1-8B + LooGLE', 
+fig.text(0.64, 0.01, 'Llama3.1-8B + LooGLE',
          ha='center', fontsize=12, fontweight='bold')
-fig.text(0.82, 0.01, 'Llama3.1-70B + LooGLE', 
+fig.text(0.82, 0.01, 'Llama3.1-70B + LooGLE',
          ha='center', fontsize=12, fontweight='bold')
 
 # 11. 调整布局
@@ -392,5 +401,4 @@ plt.tight_layout()
 # 13. 保存图形（可选）
 file_name = f"figure_e2e_f{figure_frac}"
 print(f"Saving figure to {file_name}.png and {file_name}.pdf")
-fig.savefig(f'{file_name}.png', dpi=300, bbox_inches='tight')
-fig.savefig(f'{file_name}.pdf', dpi=300, bbox_inches='tight')
+save_figure(fig, args.output_dir, file_name)

@@ -70,7 +70,7 @@ def resolve_paths(args):
     model_output_file = (
         Path(args.model_output_file)
         if args.model_output_file
-        else Path(default_output_relpath)
+        else data_root / "data_preprocess" / Path(default_output_relpath).name
     )
     return data_root / dataset_subdir, input_file, model_output_file
 
@@ -245,7 +245,7 @@ def main():
     requests = prepare_requests(args, dataframe, datasets, model_outputs, tokenizer)
     output_path = Path(args.output_file)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "a", encoding="utf-8", buffering=1) as output_file:
+    with open(output_path, "w", encoding="utf-8", buffering=1) as output_file:
         asyncio.run(schedule_requests(args, dataframe, requests, output_file))
 
 
