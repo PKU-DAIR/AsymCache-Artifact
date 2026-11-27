@@ -36,7 +36,7 @@ contains_word 70B "${MODEL_SIZES}" && require_dir "${MODEL_70B}"
 
 if contains_word longbench "${DATASETS}"; then
   require_dir "${DATA_ROOT}/Longbench"
-  require_file "${MODEL_OUTPUT_FILE:-/jizhicfs/pkuhetu/sca/data_preprocess/longbench_deepseek_results.jsonl}"
+  require_file "${MODEL_OUTPUT_FILE:-${DATA_ROOT}/data_preprocess/longbench_deepseek_results.jsonl}"
   for model_size in 8B 70B; do
     contains_word "${model_size}" "${MODEL_SIZES}" || continue
     for qps in 0.01 0.02 0.04; do
@@ -49,7 +49,7 @@ fi
 
 if contains_word loogle "${DATASETS}"; then
   require_dir "${DATA_ROOT}/LooGLE_merged"
-  require_file "${MODEL_OUTPUT_FILE:-/jizhicfs/pkuhetu/sca/data_preprocess/loogle_deepseek_results.jsonl}"
+  require_file "${MODEL_OUTPUT_FILE:-${DATA_ROOT}/data_preprocess/loogle_deepseek_results.jsonl}"
   for qps in 0.01 0.02 0.04; do
     for frac in 5 10; do
       require_file "${WORKLOAD_ROOT}/loogle_data/outputs_gamma_qps${frac}_CV0.25_70B_${qps}_subset.csv"

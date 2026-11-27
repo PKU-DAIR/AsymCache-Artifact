@@ -1,4 +1,10 @@
 .vscode/
+__pycache__/
+*.pyc
+results/
+figures/
+data/hf-cache/
+sglang-dev/python/sglang/vllm_flash_attn_org
 
 # Ignore experiment results in sglang-dev
 sglang-dev/other/

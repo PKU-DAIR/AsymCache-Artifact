@@ -11,17 +11,13 @@ import numpy as np
 from my_colors import *
 from parse_data import load_data_bfcl
 
-DATA_CANDIDATES = [
-    "../vllm-dev/examples/test/e2e-exp/reproduce/final_bfcl_24_summary.csv",
-]
-
 SHOW_QPS = ['1.5', '1.75', '2.0']
 APPROACHES = ['lru', 'mwf', 'continuum', 'continuum_mwf']
 PLOT_TAIL = True
 PANEL_ROWS = 3 if PLOT_TAIL else 2
 
-JOB_AVG_YLIM_LEFT = (0, 1099)
-JOB_AVG_YLIM_RIGHT = (0, 1799)
+JOB_AVG_YLIM_LEFT = (0, 1199)
+JOB_AVG_YLIM_RIGHT = (0, 1949)
 JOB_P90_YLIM_LEFT = (0, 2399)
 JOB_P90_YLIM_RIGHT = (0, 3999)
 HIT_RATE_YLIM_RIGHT = (0, 85)
@@ -37,13 +33,13 @@ def get_metric_key(row: int) -> str:
         return 'hit_rate'
     return 'job_avg'
 
-def plot_grouped_bar_chart(ax: plt.Axes, 
+def plot_grouped_bar_chart(ax: plt.Axes,
                           data: Union[Dict, List, np.ndarray, Tuple],
                           row: int,
                           col: int,
-                          bar_width: float = 0.7,
+                          bar_width: float = 0.6,
                           gap_even_to_odd: float = 0.02,
-                          gap_odd_to_even: float = 0.08):
+                          gap_odd_to_even: float = 0.3):
     """Draw grouped bars with asymmetric gaps between adjacent bars.
 
     gap_even_to_odd and gap_odd_to_even are fractions of `bar_width` (total group width).
@@ -52,9 +48,9 @@ def plot_grouped_bar_chart(ax: plt.Axes,
     """
     entry_num = len(SHOW_QPS)
     values_matrix = np.zeros((4, entry_num))
-    
+
     keyname = get_metric_key(row)
-    
+
     for i, qps in enumerate(SHOW_QPS):
         if qps not in data:
             print(f"Warning: QPS {qps} not found in data for row {row}, col {col}")
@@ -65,8 +61,8 @@ def plot_grouped_bar_chart(ax: plt.Axes,
                 print(f"Warning: Approach {approach} not found in data for QPS {qps} (row {row}, col {col})")
                 continue
             values_matrix[j, i] = qps_data[approach][keyname]
-            
-            
+
+
     m, n = values_matrix.shape  # m: 类别数, n: x轴点数
 
     # 计算柱子位置（支持奇偶不同间隔）
@@ -126,7 +122,7 @@ def plot_grouped_bar_chart(ax: plt.Axes,
                                    linewidth=0.,
                                    hatch=None)
             bars.append(bar_container)
-    
+
     # 在奇数列，展示相比前一个偶数列的百分比差值
     if row < PANEL_ROWS - 1:  # 最后一行不展示百分比
         for j in range(n):
@@ -145,7 +141,7 @@ def plot_grouped_bar_chart(ax: plt.Axes,
                 ax.text(x_pos, y_pos, f' {ratio:+.1f}%',
                         ha='center', va='bottom', fontsize=8,
                         color=bar_color, rotation=90)
-    
+
     # 设置坐标轴
     # ax.set_xlabel(x_label, fontsize=12)
     # ax.set_ylabel(y_label, fontsize=12)
@@ -153,39 +149,34 @@ def plot_grouped_bar_chart(ax: plt.Axes,
     ax.set_xticks(x)
     # show QPS labels for each x tick
     ax.set_xticklabels([f'QPS {SHOW_QPS[i]}' for i in range(n)])
-    
+
     # 添加网格线
     ax.grid(True, axis='y', alpha=0.3, linestyle='--')
-    
+
     # 添加图例
     # if categories:
     #     ax.legend(title=legend_title, fontsize=10, title_fontsize=11)
-    
+
     # 自动调整y轴范围
     max_val = values_matrix.max()
     ax.set_ylim(0, max_val * 1.15)
-    
+
     # 设置坐标轴样式
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    
+
     return bars
 
 
-def resolve_data_path() -> str:
-    for candidate in DATA_CANDIDATES:
-        if Path(candidate).exists():
-            return candidate
-    return DATA_CANDIDATES[-1]
-
-
-dataset = load_data_bfcl(resolve_data_path())
+from plot_common import plot_args, save_figure
+args = plot_args('agent')
+dataset = load_data_bfcl(args.path)
 
 mpl.rcParams["font.family"] = "Calibri"
 mpl.rcParams["font.size"] = 11
 
 
-fig_height = 2.6 if not PLOT_TAIL else 3.7
+fig_height = 2.6 if not PLOT_TAIL else 3.2
 fig = plt.figure(figsize=(4.6, fig_height), dpi=100)
 outer_gs = GridSpec(
     nrows=PANEL_ROWS,
@@ -221,7 +212,7 @@ def style_panel(ax, hide_xtick: bool) -> None:
 for idx in range(PANEL_ROWS * 2):
     grid_row = idx // 2
     grid_col = idx % 2
-    
+
     ax = axes[grid_row][grid_col]
     data = dataset['8b'] if grid_col < 1 else dataset['70b']
     plot_grouped_bar_chart(ax, data, grid_row, grid_col)
@@ -236,7 +227,7 @@ for idx in range(PANEL_ROWS * 2):
             latency_prefix = "P90" if metric_key == "job_p90" else "AVG"
             y_label = rf"{latency_prefix} Job Time (s)"
         ax.text(
-            -0.14,
+            -0.16,
             0.5,
             y_label,
             transform=ax.transAxes,
@@ -245,9 +236,9 @@ for idx in range(PANEL_ROWS * 2):
             va="center",
             fontweight="bold",
             clip_on=False,
-            fontsize=9,
+            fontsize=8.5,
         )
-        
+
     if metric_key == "job_avg":
         if grid_col == 0:
             ax.set_yticks([0, 500])
@@ -276,7 +267,7 @@ fig.legend(
     loc="upper center",
     bbox_to_anchor=(0.5, 1.0 if PLOT_TAIL else 1.04),
     ncol=2,
-    fontsize=10.5,
+    fontsize=10,
     framealpha=0.0,
     labelspacing=0.2,
     handletextpad=0.6,
@@ -304,5 +295,4 @@ fig.subplots_adjust(left=0.09, right=0.995, bottom=0.13, top=0.87, wspace=0.18, 
 
 file_name = "figure_agent"
 print(f"Saving figure to {file_name}.png and {file_name}.pdf")
-fig.savefig(f"{file_name}.png", dpi=300, bbox_inches="tight", pad_inches=0.02)
-fig.savefig(f"{file_name}.pdf", dpi=300, bbox_inches="tight", pad_inches=0.02)
+save_figure(fig, args.output_dir, file_name, pad_inches=0.02)

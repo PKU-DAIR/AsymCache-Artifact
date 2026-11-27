@@ -1,394 +1,346 @@
 # AsymCache Artifact
 
-Please refer to [[PROOF] properties of order-preserving rule.pdf](./[PROOF]%20properties%20of%20order-preserving%20rule.pdf) for the missed proof in Section 4.4.
+This artifact reproduces AsymCache's end-to-end serving results, its evaluation on the Qwen-Bailian production workload, the Multi-Segment Attention (MSA) kernel comparison, the hyper-parameter sensitivity study, and its integration with Continuum on an agent workload.
 
-## 1. Description
+The [main repository](https://github.com/PKU-DAIR/AsymCache-Artifact.git) contains the experiment tools, workload inputs, paper reference measurements, plotting code, customized SGLang source, and POD attention source. The [customized vLLM repository](https://github.com/SpiritedAwayCN/AsymCache-Artifact-vLLM.git) is checked out at `vllm/`. All vLLM experiments use this unified checkout.
 
-Environment dependencies:
+The proof for the order-preserving rule in Section 4.4 is available in [the supplementary proof](%5BPROOF%5D%20properties%20of%20order-preserving%20rule.pdf).
+
+## 1. Paper results and terminology
+
+| Paper result | Workload and experiment | Run command | Figure basename |
+| --- | --- | --- | --- |
+| Figure 11 | LongBench and LooGLE, low dispersion (`frac=5`) | `bash scripts/run.sh e2e` and `bash scripts/run.sh sglang` | `figure_e2e_f5` |
+| Figure 12 | LongBench and LooGLE, high dispersion (`frac=10`) | Same end-to-end runs | `figure_e2e_f10` |
+| Figure 13 | Qwen-Bailian real workload, named **TraceA** in the code | `bash scripts/run.sh tracea` and `bash scripts/run.sh sglang` | `figure_tracea` |
+| Figure 14 | MSA kernel comparison on Llama 3.1-8B | `python scripts/benchmark_kernel.py` | `ablation-fused2` |
+| Figure 15 | Hyper-parameter sensitivity on LongBench, Llama 3.1-8B | `bash scripts/run.sh sensitivity` | `sense` |
+| Figure 16 | Agent workload from BFCL v4 Web Search; orthogonality with Continuum | `bash scripts/run.sh agent` | `figure_agent` |
+
+LongBench and LooGLE are the paper's end-to-end workloads. TraceA denotes the replay input for the Qwen-Bailian dataset; it is evaluated using Llama 3.1-8B and Llama 3.1-70B. The BFCL workload is the paper's agent workload. `MWF` is the implementation name of AsymCache's block eviction policy, and `HOTPREFIX` is the implementation name of the Min-Hotness baseline.
+
+The plots report TTFT in seconds, TPOT in milliseconds, and cache hit rates in percent. The replay summaries store latency values in seconds and hit rates as fractions. TPOT follows the paper's analysis scripts: request completion time from arrival, divided by the number of output tokens. Agent plots report average and P90 job completion times, measured from the first arrival to the final completion within each `sample_id`.
+
+## 2. Repository layout
 
 ```text
-CUDA: 12.8
-CPU: x86_64
-GPU: 8 x H20
-PyTorch: 2.7.0
+AsymCache-Artifact/
+  vllm/                     # Unified vLLM source submodule
+  vllm-flash-attn-dev/      # FlashAttention source submodule
+  sglang-dev/               # Customized SGLang source
+  pod_attn_dev/pod_attn/     # POD/MSA extension source
+  scripts/                  # Environment, build, workload and validation tools
+  plots/                    # Replay analysis and paper figure scripts
+  data/
+    workloads/              # Conversation inputs, arrival schedules and traces
+    reference/paper/        # Paper measurements, including kernel profiles
+    hf-cache/               # Model download cache
+  results/
+    raw/vllm/               # End-to-end, TraceA, agent and sensitivity outputs
+    raw/sglang/             # SGLang replay outputs
+    raw/kernel/             # Kernel profiling CSV files
+    parameters/             # TraceA MWF parameters, one JSON file per QPS
+    summary/                # Merged CSV tables for plotting
+    smoke/                  # Synthetic workflow validation outputs
+  figures/                  # Generated PDF and PNG figures
 ```
 
-This repository is the artifact of AsymCache. Currently, the code has not been fully arranged, but is still able to reproduce all the main results in the paper.
+See [data/README.md](data/README.md) for input formats and [plots/README.md](plots/README.md) for individual plotting commands.
 
-Our modified vllm is a submodule in this repository, which is a public repo at: https://gitee.com/spiritedawaycn/vllm-dev.git
+## 3. Clone and configure
 
-## 2. Installation
-
-Please download this repository, and change your directory using:
+The experiment configuration uses Linux x86-64, eight NVIDIA H20 GPUs, CUDA Toolkit 12.8, and Python 3.10. The 8B model uses one GPU; the 70B model uses four GPUs with tensor parallelism. The two serving environments use the PyTorch versions specified by their source packages: 2.7.0 for vLLM and 2.7.1 for SGLang, with CUDA 12.8 wheels.
 
 ```bash
-cd multi-segment-attention
+git clone --recurse-submodules https://github.com/PKU-DAIR/AsymCache-Artifact.git
+cd AsymCache-Artifact
+export ARTIFACT_ROOT="$PWD"
 ```
 
-If the repository has already been cloned without submodules, initialize the submodule manually:
+For an existing clone:
 
 ```bash
+git submodule sync --recursive
 git submodule update --init --recursive
 ```
 
-Alternatively, you can manually clone our modifed vllm repo using:
-```bash
-git clone https://gitee.com/spiritedawaycn/vllm-dev.git
-```
+The recorded submodule revisions are:
 
-After this step, the vllm/ directory should not be empty.
+| Directory | Source | Revision |
+| --- | --- | --- |
+| `vllm` | `https://github.com/SpiritedAwayCN/AsymCache-Artifact-vLLM.git` | `eb1f068d5fd78fb68a861a751caa5d9dc3e71904` (`main`) |
+| `vllm-flash-attn-dev` | `https://github.com/SpiritedAwayCN/vllm-flash-attenntion-dev.git` | `699ab0c98e058f40ab46cc148c046bd8f356657e` (`250512-rebase`, default branch) |
 
-```bash
-conda create -n msa python=3.10
-conda activate msa
-```
-
-Install `pod_attn`:
+Install the system build tools:
 
 ```bash
-cd pod_attn_dev
-pip install -e .
+sudo apt-get update
+sudo apt-get install -y build-essential git curl ninja-build numactl
+export CUDA_HOME=/usr/local/cuda-12.8
+export PATH="${CUDA_HOME}/bin:${PATH}"
+export MAX_JOBS=16
+export TORCH_CUDA_ARCH_LIST=9.0
 ```
 
-Install the local vLLM package:
+Set the local model directories before sourcing the shared environment:
 
 ```bash
-cd ../vllm
-pip install -e . -v -i https://pypi.tuna.tsinghua.edu.cn/simple
+export MODEL_8B_PATH=/path/to/Llama-3.1-8B-Instruct
+export MODEL_70B_PATH=/path/to/Llama-3.1-70B-Instruct
+source scripts/env.sh
 ```
 
-Build the `c_set` extension:
+The model directories contain the model weights, tokenizer files and model configuration. `scripts/env.sh` derives the code, workload, extension and output paths from the checkout location. Source it again after activating an environment so that `PYTHON_BIN`, `PY_VLLM` and `PY_SGLANG` select that environment's interpreter. Set `ARTIFACT_DATA` and `ARTIFACT_RESULTS` before sourcing it to place data and results on another filesystem.
+
+The shared environment enables the engines' context-length override settings for the experiment scripts' 450,000-token capacity.
+
+## 4. Build the two environments
+
+### 4.1 vLLM environment
 
 ```bash
-cd ./csrc/c_set
-g++ -O3 -Wall -shared -std=c++17 -fPIC \
-  $(python3 -m pybind11 --includes) \
-  c_set.cpp \
-  -o c_set$(python3-config --extension-suffix)
+conda create -n asymcache-vllm python=3.10 -y
+conda activate asymcache-vllm
+cd "$ARTIFACT_ROOT"
+source scripts/env.sh
+bash scripts/build.sh vllm
 ```
 
-The SGLang experiments use the customized source in `sglang-dev/`. Set the
-paths relative to the repository root:
+The build script installs vLLM's build and CUDA dependencies, compiles the local vLLM source in editable mode, builds POD attention, and compiles `vllm/csrc/c_set/c_set.cpp`.
+
+The local FlashAttention source is selected with both environment variables below. vLLM's CMake integration reads `VLLM_FLASH_ATTN_SRC_DIR`:
 
 ```bash
-export REPO=/path/to/Multi-Segment-Attention
-export VLLM_ROOT="${REPO}/vllm"
-export SGLANG_ROOT="${REPO}/sglang-dev"
+export flash_attn_src="${ARTIFACT_ROOT}/vllm-flash-attn-dev"
+export VLLM_FLASH_ATTN_SRC_DIR="${flash_attn_src}"
 ```
 
-Activate the SGLang environment. The original experiments used Python 3.10:
+The source build commands executed by the script are:
 
 ```bash
-conda create -n sglang-pod python=3.10 -y
-conda activate sglang-pod
-python -m pip install -r "${SGLANG_ROOT}/requirements.txt"
+cd "${ARTIFACT_ROOT}/vllm"
+python -m pip install -e . --no-build-isolation -v
+
+cd "${ARTIFACT_ROOT}/pod_attn_dev/pod_attn"
+python -m pip install -e . --no-build-isolation -v
+
+cd "${ARTIFACT_ROOT}/vllm/csrc/c_set"
+c++ -O3 -Wall -shared -std=c++17 -fPIC \
+  $(python -m pybind11 --includes) c_set.cpp \
+  -o "c_set$(python -c 'import sysconfig; print(sysconfig.get_config_var("EXT_SUFFIX"))')"
 ```
 
-Install `pod_attn` and build the local vLLM package in this environment by
-following the preceding steps. Then install the customized SGLang package:
+### 4.2 SGLang environment
 
 ```bash
-cd "${SGLANG_ROOT}"
-python -m pip install -e ./python
+conda create -n asymcache-sglang python=3.10 -y
+conda activate asymcache-sglang
+cd "$ARTIFACT_ROOT"
+source scripts/env.sh
+bash scripts/build.sh sglang
 ```
 
-SGLang imports the vLLM FlashAttention extension through
-`python/sglang/vllm_flash_attn_org`. Create a symbolic link to the extension
-that was built in the local vLLM source tree:
+This installs the customized SGLang source with `pip install -e ./python[srt,openai]`, builds POD attention in the SGLang environment, and compiles `c_set`.
 
-```bash
-ln -s "${VLLM_ROOT}/vllm/vllm_flash_attn" \
-  "${SGLANG_ROOT}/python/sglang/vllm_flash_attn_org"
-```
+The SGLang POD build uses a source copy at `<sglang-environment>/src/asymcache-pod-attn/` and installs it in editable mode. The vLLM POD build uses `pod_attn_dev/pod_attn/`. This gives each environment its own POD binary compiled against its PyTorch version.
 
-The resulting link inside the cloned repository should be:
+The build script creates this symbolic link:
 
 ```text
-Multi-Segment-Attention/sglang-dev/python/sglang/vllm_flash_attn_org
-  -> Multi-Segment-Attention/vllm/vllm/vllm_flash_attn
+sglang-dev/python/sglang/vllm_flash_attn_org
+  -> <artifact-root>/vllm/vllm/vllm_flash_attn
 ```
 
-## 3. Run Experiments
-
-### (1) LongBench and LooGLE
-
-Set the workspace path. This should be the directory that contains `vllm-dev`:
+The SGLang backend runs with `USE_ORG=1` and `USE_POD=1`. In `fapod_backend.py`, `USE_ORG=1` selects `_vllm_fa2_C*.so` through `vllm_flash_attn_org`; `USE_POD=1` imports the POD extension. Both serving engines use the FlashAttention library compiled by the vLLM build. Recreate the link after relocating the checkout with:
 
 ```bash
-export WORKSPACE=/home
+python scripts/link_flash_attn.py
 ```
 
-Switch to the `simulator` branch and run the simulator experiments:
+Each build ends by importing the local serving package, POD attention and `c_set`. The SGLang check also loads the shared FA2 library through the actual attention backend. Run these checks again with:
 
 ```bash
-cd ${WORKSPACE}/vllm-dev
-git switch simulator
-cd ${WORKSPACE}/vllm-dev/examples/test/e2e-exp/reproduce
-bash simulator_run_all.sh
+conda activate asymcache-vllm
+source scripts/env.sh
+python scripts/check_build.py vllm
+
+conda activate asymcache-sglang
+source scripts/env.sh
+python scripts/check_build.py sglang
 ```
 
-Switch to the `shed` branch and run the scheduler experiments:
+## 5. Prepare workloads
+
+All experiment inputs are included under `data/workloads/`: LongBench and LooGLE conversations, their generated reference answers and arrival schedules, the BFCL CSV files, and the 2,100-request TraceA input with its token mapping. Validate the packaged inputs with:
 
 ```bash
-cd ${WORKSPACE}/vllm-dev
-git switch shed
-cd ${WORKSPACE}/vllm-dev/examples/test/e2e-exp/reproduce
-bash shed_run_all.sh
+conda activate asymcache-vllm
+cd "$ARTIFACT_ROOT"
+source scripts/env.sh
+python scripts/prepare_data.py
 ```
 
-The run scripts create per-experiment folders under the shared results directory, such as:
+LongBench contains 380 conversations in six JSONL files and 1,140 generated reference answers. LooGLE contains 140 conversations in `longdep_qa.jsonl` and 1,101 generated reference answers. The reference files are `data_preprocess/longbench_deepseek_results.jsonl` and `data_preprocess/loogle_deepseek_results.jsonl`. The replay interfaces use these answers to construct multi-turn histories and standard output tokens.
+
+The validator checks conversation schemas, chronological arrival schedules, dialogue and turn indices, unique reference keys, and reference answers for every replayed turn. Select experiment groups with:
 
 ```bash
-${WORKSPACE}/results/lru
-${WORKSPACE}/results/pensieve
-${WORKSPACE}/results/max_score
+python scripts/prepare_data.py --groups e2e sensitivity
+python scripts/prepare_data.py --groups tracea agent
 ```
 
-After all experiments finish, run:
+## 6. Run experiments
+
+Run the following commands from the artifact root. The launchers write replay records, server logs and scheduler logs into the common `results/raw/` tree.
+
+### 6.1 LongBench and LooGLE: end-to-end experiments
 
 ```bash
-python3 analyse.py
+conda activate asymcache-vllm
+source scripts/env.sh
+bash scripts/run.sh e2e
 ```
 
-The analysis scans the shared `results` directory next to `vllm-dev` and writes the merged CSV summary to:
+The launcher reads the workload configurations in `vllm/examples/test/e2e-exp/reproduce/e2e/lru/`. It runs LongBench and LooGLE, both model sizes, QPS 0.01/0.02/0.04, and dispersion factors 5/10. The matrix contains 124 vLLM configurations.
+
+| Launcher baseline | Figure label | Eviction policy | `USE_MINEXP` |
+| --- | --- | --- | --- |
+| `LRU` | vLLM-LRU | `lru` | 0 |
+| `PENSIEVE` | Pensieve + MSA | `pensieve` | 0 |
+| `BS` | Max-Score | `bs` | 2 |
+| `HOTPREFIX` | Min-Hotness | `hotprefix` | 0 |
+| `ASYMCACHE_NO_SCHEDULER` | AsymCache w/o Scheduler | `mwf` | 2 |
+| `ASYMCACHE` | AsymCache | `mwf` | 2 |
+
+Select an individual configuration with:
 
 ```bash
-${WORKSPACE}/results/summary.csv
+bash scripts/run.sh e2e --baseline BS --workload longbench \
+  --model-size 8B --qps 0.02 --frac 5 --gpu 0 --port 8050
 ```
 
-### (2) BFCL workload
-
-Data files:
+Print the complete matrix with `bash scripts/run.sh e2e --dry-run`. Completed configurations are recorded in `run.json` and skipped when resuming; add `--rerun` to execute them again. Outputs are organized as:
 
 ```text
-multi-segment-attention/BFCL_dataset/2x_bfcl_web_search_prompts_qps1.5.csv
-multi-segment-attention/BFCL_dataset/2x_bfcl_web_search_prompts_qps1.75.csv
-multi-segment-attention/BFCL_dataset/2x_bfcl_web_search_prompts_qps2.0.csv
+results/raw/vllm/e2e/<baseline>/<experiment>/
+  <experiment>.jsonl
+  run.json
+  server_output.log
+  scheduler.log
 ```
 
-Before running experiments on a new machine, edit `env.sh` or override its variables from the shell. The important variables are:
-
-```text
-PYTHON_BIN            # Python executable in the vLLM environment
-MODEL_8B_PATH         # local path to Llama-3.1-8B-Instruct
-MODEL_70B_PATH        # local path to Llama-3.1-70B-Instruct
-HF_HOME               # Hugging Face cache root
-HUGGINGFACE_HUB_CACHE # Hugging Face hub cache
-CSET_DIR              # path required by the custom vLLM/pod_attention build
-```
-
-Use the shared launcher:
+### 6.2 TraceA: Qwen-Bailian real workload
 
 ```bash
-bash run_bfcl_baseline_server.sh --baseline MWF --model-size 70B --qps 1.75
+bash scripts/run.sh tracea
 ```
 
-The required command-line arguments are:
-
-```text
---baseline    LRU, MWF, CONTINUUM, or CONTINUUM_MWF
---model-size  8B or 70B
---qps         1.5, 1.75, or 2.0
-```
-
-`BFCL_24_EXPERIMENT_COMMANDS.sh` contains the complete list of 24 commands. It is a copy-paste command list, not a script to run end-to-end. Do not run: `bash BFCL_24_EXPERIMENT_COMMANDS.sh`. Run one command at a time, or submit each command as a separate cluster job.
-
-By default, outputs are written under:
-
-```text
-./${MODEL_SIZE}_results/2x_${BASELINE}_qps${QPS}/
-```
-
-For example:
-
-```text
-70B_results/2x_MWF_qps1.75/
-|-- 2x_MWF_replay_output_qps1.75.jsonl
-|-- schedule_qps1.75.log
-|-- server_output_qps1.75.log
-```
-
-After the replay JSONL files are produced, summarize all 24 result directories:
+This runs LRU, Pensieve + MSA, Max-Score, AsymCache and Min-Hotness on both model sizes at QPS 0.2, 0.25 and 0.3: 30 vLLM configurations. For each QPS, the launcher invokes `Qwen_trace/CDF.py` at percentile 75, reads the generated JSON parameters and passes `MINEXP_B`, `MINEXP_ALPHA` and `MINEXP_BETA` to the experiment launcher. Min-Hotness uses aging interval 2.
 
 ```bash
-python full_result.py
+bash scripts/run.sh tracea --model-size 8B --qps 0.2 --baseline MWF
+bash scripts/run.sh tracea --model-size 70B --qps 0.25 --dry-run
 ```
 
-The summary CSV is written to:
+Parameters are stored in `results/parameters/tracea_qps<QPS>.json`; replay outputs are under `results/raw/vllm/tracea/<8B|70B>/<experiment>/`.
 
-```text
-final_bfcl_24_summary.csv
-```
-
-### (3) traceA workload
-
-For the five vLLM-based baselines, switch to the hotprefix-sim branch:
+### 6.3 SGLang baseline for end-to-end and TraceA
 
 ```bash
-cd /path/to/vllm-dev
-git switch hotprefix-sim
-cd /path/to/vllm-dev/examples/test/e2e-exp/Qwen_trace
+conda activate asymcache-sglang
+source scripts/env.sh
+bash scripts/run.sh sglang
 ```
 
-For each QPS, compute the MWF parameters with `CDF.py` first:
+The six stages run LongBench, LooGLE and TraceA on both model sizes. They produce 24 end-to-end configurations and six TraceA configurations under `results/raw/sglang/<longbench|loogle|traceA>/<8B|70B>/`.
+
+Select stages and GPU placement through environment variables:
 
 ```bash
-python CDF.py /path/to/tracea_2k_cache_pressure_relaxed_2100.jsonl --target-qps 0.2 --percentile 75
+DATASETS="longbench loogle" MODEL_SIZES="8B" GPU_8B=0 \
+  bash scripts/run.sh sglang
+DATASETS="traceA" MODEL_SIZES="70B" GPU_70B=0,1,2,3 \
+  bash scripts/run.sh sglang
 ```
 
-The numeric line in the output is:
-
-```text
-<percentile> <minexp-b> <minexp-alpha> <minexp-beta> <minexp-a>
-```
-
-Fill the values into `run_traceA_2100.sh`:
-
-```text
-DEFAULT_MINEXP_B=...
-DEFAULT_MINEXP_ALPHA=...
-DEFAULT_MINEXP_BETA=...
-```
-
-Then run:
+### 6.4 BFCL: agent workload and Continuum orthogonality
 
 ```bash
-bash run_traceA_2100.sh --all-policies --model-size 8B --qps 0.2
-bash run_traceA_2100.sh --all-policies --model-size 70B --qps 0.2
+conda activate asymcache-vllm
+source scripts/env.sh
+bash scripts/run.sh agent
 ```
 
-Repeat for `--target-qps 0.25` and `--target-qps 0.3`.
+The matrix contains both model sizes, QPS 1.5/1.75/2.0, and four baselines: `LRU`, `MWF`, `CONTINUUM`, and `CONTINUUM_MWF`, for 24 runs. They correspond to vLLM-LRU, AsymCache, Continuum, and Continuum + AsymCache. Outputs are under `results/raw/vllm/agent/<8B|70B>/2x_<BASELINE>_qps<QPS>/`.
 
-### (4) SGLang baseline
-
-The SGLang baseline only needs to be evaluated for LongBench, LooGLE, and traceA. 
-
-Before running the experiments, update `env.sh` according to the local machine. In particular, please check `SGLANG_ROOT`, `DATA_ROOT`, model paths. Make sure that the workload files are available, and run the scripts inside the SGLang Conda environment.
-
-To run all SGLang baseline experiments:
+Run one configuration directly with the same paths:
 
 ```bash
-cd /path/to/sglang-dev/workload-exp/exp-reproduce
-bash run_all.sh
+bash "${VLLM_ROOT}/examples/test/e2e-exp/BFCL_workload_reproduce/run_bfcl_baseline_server.sh" \
+  --baseline CONTINUUM_MWF --model-size 70B --qps 1.75 \
+  --result-root "${RESULTS_ROOT}/agent/70B"
 ```
 
-The script runs six stages sequentially: If one stage fails, the remaining stages will still be executed, and the script will report the failed stages. All outputs are written to:
-
-```text
-RESULTS_ROOT/<dataset>/<8B|70B>/
-```
-
-## 4. Hyper-parameter Sensitivity
-
-Switch to the `simulator` branch and run the experiments:
+### 6.5 Hyper-parameter sensitivity
 
 ```bash
-cd /path/to/vllm-dev
-git switch simulator
-cd /path/to/vllm-dev/examples/test/e2e-exp/hyper_parameter
+bash scripts/run.sh sensitivity
 ```
 
-Each line in `ablation_config.txt` follows this format:
+The 20 configurations in `hyper_parameter/ablation_config.txt` sweep lifespan multipliers 0.6/0.8/1.2/1.4, reuse probabilities 0.80/0.90/0.95, and slope change ratios 10/25/50. Each sweep evaluates both dispersion factors on LongBench, Llama 3.1-8B, QPS 0.02. The launcher also collects the default AsymCache point and LRU reference for both factors using the end-to-end launcher. The plotting code inserts these references into all six panels automatically.
 
-```text
-<qps> <set> <grad> <minexp_b> <minexp_alpha> <minexp_beta> <dataset> <frac>
-```
+Sweep results are under `results/raw/vllm/sensitivity/`. The default points and LRU references are under `results/raw/vllm/e2e/`.
 
-For example:
-
-```text
-0.02 0.6x 40 -6.456619e+02 6.257895e+04 1.564474e+03 longbench 5
-```
-
-Before running, please check the hard-coded paths and machine-specific settings in `run_ab_one.sh`.
-
-Important variables include:
+### 6.6 MSA kernel comparison
 
 ```bash
-export CSET_DIR=/path/to/vllm/csrc/c_set
-BASE_DIR="/path/to/ablation_results"
-PY_VLLM="/path/to/conda/env/bin/python3"
-MODEL="meta-llama/Llama-3.1-8B-Instruct"
-GPU="0"
-PORT=8050
-VLLM_PORT=12345
+CUDA_VISIBLE_DEVICES=0 python scripts/benchmark_kernel.py
 ```
 
-Please update these paths according to your local environment. Then, run:
+The profiler runs the three caching methods in separate processes for 1K and 10K sequences, using Llama 3.1-8B and tensor parallelism 1. It varies cached length in 16-token steps and records per-run model forward times and the trimmed mean in milliseconds. The suffix experiments use 32 appended tokens for the 1K profile and 128 for the 10K profile, following the original profiling scripts. `--tail-tokens` selects a common appended-token count.
 
 ```bash
-bash run_ab_sweep.sh
+python scripts/benchmark_kernel.py --dry-run
+CUDA_VISIBLE_DEVICES=0 python scripts/benchmark_kernel.py --mode msa --length 10k
 ```
 
-For each configuration, `run_ab_one.sh` creates one output folder under:
+The six CSV files in `results/raw/kernel/` use the original `cached_length` and `AVG` columns and filenames.
 
-```text
-ablation_results/
-```
+## 7. Summarize and draw the figures
 
-The folder naming format is:
-
-```text
-LongBench_300_overall_qps<qps>_frac<frac>_set<set>_grad<grad>_gamma
-```
-
-For example:
-
-```text
-LongBench_300_overall_qps0.02_frac5_set0.6x_grad40_gamma
-LongBench_300_overall_qps0.02_frac10_set1x1y_grad50_gamma
-```
-
-The provided configuration file contains 20 experiment settings, so the final result should contain 20 folders.
-
-Finally, run:
+After collecting the runs in both environments:
 
 ```bash
-python result_analyse.py
+cd "$ARTIFACT_ROOT"
+python plots/collect_results.py
+python plots/plot_all.py
 ```
 
-## 5. Plot Figures
+The collector uses each experiment family's analyzer and merges vLLM and SGLang results into four named tables: `e2e.csv`, `tracea.csv`, `agent.csv`, and `sensitivity.csv` in `results/summary/`. The plotter reads those column names, assembles the sensitivity panels and writes all six figures as PDF and PNG under `figures/`. It preserves the paper's subplot layouts, Calibri typography, color palettes, hatching, axes and figure basenames. Install Calibri in the plotting environment to use the paper's font.
 
-Before plotting figure, please first change your directory to:
+To draw the figures directly from the included paper measurements:
 
 ```bash
-cd ${WORKSPACE}/plots
+python -m pip install -r scripts/requirements.txt
+python plots/plot_all.py --reference --output-dir figures/reference
 ```
 
-### End-to-end Results (Figure 11 & 12)
-
-Please run following command:
-```bash
-python plot-e2e.py --path ${WORKSPACE}/results/summary.csv --div low  # Figure 11
-python plot-e2e.py --path ${WORKSPACE}/results/summary.csv --div high # Figure 12
-```
-
-### Qwen Dataset Results (Figure 13)
-Currently, the end-to-end result tables are stored separately under the vLLM and SGLang paths. Please manually merge them into a single CSV file by concatenating the rows.
-
-Set the `path` argument of `load_data_tracea` in [plot-tracea.py](plots/plot-tracea.py) to the merged CSV file, then run:
+Select figures or supply another result location with:
 
 ```bash
-python plot-tracea.py
+python plots/plot_all.py --figures e2e tracea agent
+python plots/collect_results.py --raw-root /path/to/raw --output-dir /path/to/summary
+python plots/plot_all.py --summary-dir /path/to/summary \
+  --kernel-dir /path/to/kernel --output-dir /path/to/figures
 ```
 
-A one-command plotting workflow will be available soon.
-
-### Hyper-parameter Sensitivity (Figure 15)
-To make the plotting script identify which rows belong to which subplot, we provide a preprocessing script:
+## 8. Validate the data and plotting workflow
 
 ```bash
-python build_summary_sense.py --input /path/to/ablation.csv --output summary-sense.csv
+python scripts/check_replay_inputs.py
+python scripts/smoke_test.py
 ```
 
-After generating summary-sense.csv, please manually check and complete the baseline rows used for comparison. Specifically, for each subplot, the corresponding LRU and MWF baseline results under the same workload configuration should be copied and pasted into the appropriate rows below the corresponding subplot marker.
+The replay input check loads the packaged conversations and answers through the original vLLM and SGLang interfaces. It checks all 24 LongBench/LooGLE schedule files and compares request histories and reference answers using a symbolic tokenizer. Its report is saved to `results/validation/replay-inputs.json`.
 
-Please first check whether the data path has been correctly set in `plot_sense.py` (line 13).
-
-Then, run `plot_sense.py` to plot figure (Figure 15 in the paper).
-
-### Integration with Agentic System (Figure 16)
-
-Please first check whether the data path has been correctly set in `plot-agent.py` (line 15).
-
-Then, run `plot-agent.py` to plot figure (Figure 16 in the paper).
+The smoke test creates 228 synthetic experiment logs with known timestamps, cache metrics and agent sessions. It runs the family analyzers, checks TTFT/TPOT/hit-rate/job-latency values, checks complete baseline coverage, checks rejection of duplicate results, and renders six PDF/PNG pairs. Synthetic inputs, summaries and figures are stored under `results/smoke/`.

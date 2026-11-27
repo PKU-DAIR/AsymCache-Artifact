@@ -1,3 +1,8 @@
 [submodule "vllm"]
 	path = vllm
 	url = https://github.com/SpiritedAwayCN/AsymCache-Artifact-vLLM.git
+	branch = main
+[submodule "vllm-flash-attn-dev"]
+	path = vllm-flash-attn-dev
+	url = https://github.com/SpiritedAwayCN/vllm-flash-attenntion-dev.git
+	branch = 250512-rebase

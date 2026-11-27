@@ -1,0 +1,8 @@
+aiohttp
+pandas
+numpy
+scipy
+matplotlib
+tqdm
+requests
+pybind11

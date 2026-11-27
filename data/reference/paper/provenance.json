@@ -1,0 +1,28 @@
+{
+  "source": "Paper figure project",
+  "tables": {
+    "e2e.csv": [
+      "data workbook / worksheet 7",
+      "data/summary-sglang.csv",
+      "data/summary-hotprefix.csv"
+    ],
+    "tracea.csv": [
+      "data/tracea.csv"
+    ],
+    "agent.csv": [
+      "data workbook / BFCLv4"
+    ],
+    "sensitivity.csv": [
+      "data workbook / sense-sheet"
+    ]
+  },
+  "source_sha256": {
+    "data\\\u5b9e\u9a8c\u7ed3\u679c.xlsx": "ccc030f06e114995d78b1226534683f1c4efa04906723e10e133ea9c680e6a1b",
+    "parse_data.py": "9e47b212d42a6a4cecb7d7ddeed70a26063ceb436e248b16794edbab2ac91cd1",
+    "my_colors.py": "4fe80544a9861d3200665601260e72f308a8eb8289baccd65bb89fc11f3b7f0b",
+    "profile_8B_tp1\\plot_cache_rate.py": "d98330fab025aee60fa419b000c696b03abe519111ed159de3f8e8f0102f237c"
+  },
+  "normalization_notes": [
+    "Agent P90 uses the named job_latency_p90 column."
+  ]
+}

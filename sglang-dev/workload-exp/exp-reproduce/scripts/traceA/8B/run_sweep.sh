@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -uo pipefail
+set -Eeuo pipefail
 
 TP="${TP:-1}"
 GPU="${GPU:-0}"
