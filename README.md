@@ -171,21 +171,21 @@ python scripts/check_build.py sglang
 
 ## 5. Prepare workloads
 
-The BFCL CSV files, the 2,100-request TraceA input and token mapping, and the LongBench/LooGLE arrival schedules are under `data/workloads/`. Import the prepared LongBench/LooGLE conversation bundle by specifying its directory:
+All experiment inputs are included under `data/workloads/`: LongBench and LooGLE conversations, their generated reference answers and arrival schedules, the BFCL CSV files, and the 2,100-request TraceA input with its token mapping. Validate the packaged inputs with:
 
 ```bash
 conda activate asymcache-vllm
 cd "$ARTIFACT_ROOT"
 source scripts/env.sh
-python scripts/prepare_data.py --source /path/to/prepared/datasets
+python scripts/prepare_data.py
 ```
 
-The source directory contains `Longbench/`, `LooGLE_merged/`, and `data_preprocess/`. The import command copies them into `data/workloads/` and checks the conversation fields, schedule indices, and reference outputs for every replayed turn. The two reference output files are `longbench_deepseek_results.jsonl` and `loogle_deepseek_results.jsonl`. Their prepared answers determine the replayed multi-turn histories and output lengths.
+LongBench contains 380 conversations in six JSONL files and 1,140 generated reference answers. LooGLE contains 140 conversations in `longdep_qa.jsonl` and 1,101 generated reference answers. The reference files are `data_preprocess/longbench_deepseek_results.jsonl` and `data_preprocess/loogle_deepseek_results.jsonl`. The replay interfaces use these answers to construct multi-turn histories and standard output tokens.
 
-Check all inputs, or select an experiment group:
+The validator checks conversation schemas, chronological arrival schedules, dialogue and turn indices, unique reference keys, and reference answers for every replayed turn. Select experiment groups with:
 
 ```bash
-python scripts/prepare_data.py
+python scripts/prepare_data.py --groups e2e sensitivity
 python scripts/prepare_data.py --groups tracea agent
 ```
 
@@ -337,7 +337,10 @@ python plots/plot_all.py --summary-dir /path/to/summary \
 ## 8. Validate the data and plotting workflow
 
 ```bash
+python scripts/check_replay_inputs.py
 python scripts/smoke_test.py
 ```
 
-This creates 228 synthetic experiment logs with known timestamps, cache metrics and agent sessions. It runs the family analyzers, checks TTFT/TPOT/hit-rate/job-latency values, checks complete baseline coverage, checks rejection of duplicate results, and renders six PDF/PNG pairs. Synthetic inputs, summaries and figures are stored under `results/smoke/`.
+The replay input check loads the packaged conversations and answers through the original vLLM and SGLang interfaces. It checks all 24 LongBench/LooGLE schedule files and compares request histories and reference answers using a symbolic tokenizer. Its report is saved to `results/validation/replay-inputs.json`.
+
+The smoke test creates 228 synthetic experiment logs with known timestamps, cache metrics and agent sessions. It runs the family analyzers, checks TTFT/TPOT/hit-rate/job-latency values, checks complete baseline coverage, checks rejection of duplicate results, and renders six PDF/PNG pairs. Synthetic inputs, summaries and figures are stored under `results/smoke/`.

@@ -1,5 +1,7 @@
 # Introduction
 
+For the AsymCache source builds and experiment commands, follow the [AsymCache Artifact guide](../README.md).
+
 vAttention is a memory manager for KV-cache in LLM serving systems. It decouples the allocation of virtual memory and physical memory using the [CUDA virtual memory APIs](https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__VA.html). This approach enables allocating physical memory on demand while retaining the contiguity of KV-cache in virtual memory. This way, vAttention provides support for dynamic memory allocation to unmodified attention kernels. This way of memory management is different from the popular [PagedAttention](https://blog.vllm.ai/2023/06/20/vllm.html) approach; PagedAttention implements demand paging in user space and requires rewriting custom kernels to support dynamic memory allocation. vAttention also improves performance over PagedAttention in many cases, especially for prefill-bound workloads. Please checkout our [paper](https://arxiv.org/abs/2405.04437) for more details.
 
 
@@ -16,7 +18,7 @@ This repository contains an implementation of vAttention, intergrated with an LL
 
 # Installation and Dependencies
 
-Using this repo requires **PyTorch 2.3.0** and **CUDA 12.1** (or later but other CUDA versions may or may not work). We have tested vAttention with the Linux kernel, **A100 GPUs** and **python 3.10** but expect it to work on other Linux-based systems as long as they are running the specified CUDA and PyTorch versions.
+The vAttention experiments use **PyTorch 2.3.0**, **CUDA 12.1**, Linux, **A100 GPUs**, and **Python 3.10**.
 
 To install vAttention and Sarathi-Serve, create a conda environment as follows:
 
@@ -28,7 +30,7 @@ conda activate vattn
 Now, download and extract libtorch first (this is required to build the vattention memory allocator), and then build sarathi-serve and vattention as follows:
 
 ```sh
-# the libtorch version has to match with the torch version, and we have tested only v2.3.0
+# Use libtorch 2.3.0 with PyTorch 2.3.0.
 wget https://download.pytorch.org/libtorch/cu121/libtorch-shared-with-deps-2.3.0%2Bcu121.zip
 unzip libtorch-shared-with-deps-2.3.0+cu121.zip
 
@@ -80,14 +82,14 @@ We have modified Sarathi-Serve to support [FlashAttention]((https://github.com/D
 * [vattention_flashinfer_wrapper.py](sarathi-lean/sarathi/model_executor/attention/vattention_flashinfer_wrapper.py) This experimental backend demonstrates the portability of vAttention approach. It uses FlashInfer's `flashinfer.prefill.single_prefill_with_kv_cache` API for (non-paged) prefill and FlashAttention's `flash_attn_with_kvcache` API for (non-paged) decode.
 
 
-The backends can be configured by updating the `attention_backends` list in our scripts. We currently support `fa_paged_[block_size]`, `fi_paged_[block_size]`, `fa_vattn_[page_size]`, `fi_vattn_[page_size]`, `fa_vattn_[page_size]_sync`, `fi_vattn_[page_size]_sync` where `fa` denotes FlashAttention (we tested v2.5.9) and `fi` denotes FlashInfer (we tested v0.0.6). We recommend using block size 256 for FlashAttention and 16 for FlashInfer because we have observed them performing best with these block sizes. vAttention supports 64KB, 128KB, 256KB and 2MB page sizes (example knobs: `fa_vattn_256kb`, `fi_vattn_2mb_sync`). Using suffix `_sync` in vAttention knob disables our optimization of overlapping memory allocation with compute which may be useful for benchmarking. We recommend using vAttention with asynchronous memory allocation i.e., without the `_sync` suffix.
+The backends can be configured by updating the `attention_backends` list in our scripts. Supported backends are `fa_paged_[block_size]`, `fi_paged_[block_size]`, `fa_vattn_[page_size]`, `fi_vattn_[page_size]`, `fa_vattn_[page_size]_sync`, and `fi_vattn_[page_size]_sync`, where `fa` denotes FlashAttention v2.5.9 and `fi` denotes FlashInfer v0.0.6. We recommend using block size 256 for FlashAttention and 16 for FlashInfer because we have observed them performing best with these block sizes. vAttention supports 64KB, 128KB, 256KB and 2MB page sizes (example knobs: `fa_vattn_256kb`, `fi_vattn_2mb_sync`). Using suffix `_sync` in vAttention knob disables our optimization of overlapping memory allocation with compute which may be useful for benchmarking. We recommend using vAttention with asynchronous memory allocation i.e., without the `_sync` suffix.
 
 
 ### Using smaller page sizes
 
 NVIDIA CUDA drivers allocate memory only at the granularity of large pages (2MB or above). If you want to use vAttention with smaller page sizes of 64KB, 128KB or 256KB, please follow the [README.md](./nvidia-vattn-uvm-driver/README.md) to replace the default CUDA UVM driver with our custom driver (check `nvidia-vattn-uvm-driver`).
 
-**NOTE:** Replacing CUDA drivers is not required if you want to use vAttention with only 2MB pages.
+**2MB pages:** Use the standard NVIDIA CUDA driver.
 
 # OpenAI Compatible API
 
@@ -207,4 +209,4 @@ If you use our work, please consider citing our paper:
 
 ## Acknowledgment
 
-This repository originally started as a fork of [Sarathi-Serve](https://github.com/microsoft/sarathi-serve) which in turn is a fork of the [vLLM project](https://vllm-project.github.io/). vAttention and Sarathi-Serve are research prototypes and do not have complete feature parity with open-source vLLM. We have only retained the most critical features and adopted the codebase for faster research iterations.
+This repository started as a fork of [Sarathi-Serve](https://github.com/microsoft/sarathi-serve), which in turn is a fork of the [vLLM project](https://vllm-project.github.io/). It contains the vAttention memory manager and Sarathi-Serve components used by the experiments.

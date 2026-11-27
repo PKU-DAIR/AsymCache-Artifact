@@ -2,6 +2,14 @@
   "workloads/bfcl/2x_bfcl_web_search_prompts_qps1.5.csv": "bc3cbcf548b21a159f3e53a285783faa614a38c9ce9c60a29191bc2682e64a61",
   "workloads/bfcl/2x_bfcl_web_search_prompts_qps1.75.csv": "3d8fdc840b29802db8d20ff2c8ed582a6bc230b9a946ff6cccd5f7762a079744",
   "workloads/bfcl/2x_bfcl_web_search_prompts_qps2.0.csv": "d8965316f676173ba7e039fb5048eb3758f3021b6c7234d3d64c6c3f7b2572a7",
+  "workloads/data_preprocess/longbench_deepseek_results.jsonl": "3f5a11dc2a50b6e81fcfdf0532297cd4a294723767fe41d3cf5dbe39c03c9c25",
+  "workloads/data_preprocess/loogle_deepseek_results.jsonl": "a1700d4fac84744335d188fb4df3087074c3e129a057059f751e371a42708766",
+  "workloads/Longbench/2wikimqa.jsonl": "2c0c58e8dd1ef73a497ed1c0041b7a75710f843e21ac788619e6192eab4c94e3",
+  "workloads/Longbench/hotpotqa.jsonl": "4fc9fc6f213103c51b59686e31a4359f54255e582260e017bd639a386014adb6",
+  "workloads/Longbench/multifieldqa_en.jsonl": "c77ca07823bfddc2bb4aa484d60af88379de590145693a9d02248c1819fb3ec3",
+  "workloads/Longbench/musique.jsonl": "0a00cc5d138f304b0f065f295f989d9b0b50f84547f052191c51ac295cf8a8ba",
+  "workloads/Longbench/narrativeqa.jsonl": "c6bc2c51c64d64ffbe6731a464d21c1dec4bee68139c2cce917f40b1dc8508f0",
+  "workloads/Longbench/qasper.jsonl": "199cd89f595350a9645db37a28292c48a5310e6a55fa107011bb0b159a9d0d16",
   "workloads/longbench_data/outputs_gamma_qps10_CV0.25_70B_0.01_subset.csv": "31e09308482f18b23952a449ecb0c91b870baf6e246b409cf44c7a011cfe1880",
   "workloads/longbench_data/outputs_gamma_qps10_CV0.25_70B_0.02_subset.csv": "4a17b2758bc4c1a239b91ca093b87304891cf1564050939ad3e675381cb7e730",
   "workloads/longbench_data/outputs_gamma_qps10_CV0.25_70B_0.04_subset.csv": "33bcc9f0e839cc672f5d88a0b510f1b263cfef1b3f0cb8859feb97a65f3692ea",
@@ -26,6 +34,7 @@
   "workloads/loogle_data/outputs_gamma_qps5_CV0.25_8B_0.01_subset.csv": "c5d6442413c384afed01e60dd86b0a3d961a9f86ef928f3ea91d46e53c6b6a1a",
   "workloads/loogle_data/outputs_gamma_qps5_CV0.25_8B_0.02_subset.csv": "144cb386ace14b59ae049928f4686fc61caf500cd3040d1a1acf98190e367194",
   "workloads/loogle_data/outputs_gamma_qps5_CV0.25_8B_0.04_subset.csv": "d813fbef3c18a3f658677519a1b3583367d07794cfc0508322a32968918b6642",
+  "workloads/LooGLE_merged/longdep_qa.jsonl": "ebfd56a8bc36bbaebb335fe4f5991157c3caa9d8b1ce0270cb6eae78cd0517ee",
   "workloads/tracea/mapping_config.json": "485388c665f9287d1cde074ad1297198f753a0f0737df720c496e5012f0e2509",
   "workloads/tracea/tracea_2k_cache_pressure_relaxed_2100.jsonl": "407187657fa065232de3eb63cf9b58c3d4fc2f5982c0c18e01ab12dba2a725b3"
 }

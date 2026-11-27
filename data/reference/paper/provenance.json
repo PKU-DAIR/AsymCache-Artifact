@@ -23,6 +23,6 @@
     "profile_8B_tp1\\plot_cache_rate.py": "d98330fab025aee60fa419b000c696b03abe519111ed159de3f8e8f0102f237c"
   },
   "normalization_notes": [
-    "Agent P90 reads the named job_latency_p90 column. The old positional parser read max_job_latency under the P90 label."
+    "Agent P90 uses the named job_latency_p90 column."
   ]
 }

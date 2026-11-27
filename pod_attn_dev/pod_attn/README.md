@@ -8,6 +8,8 @@
 POD-Attention: <br> Unlocking Full Prefill-Decode Overlap 
 	For Faster LLM Inference
 </h1>
+For the AsymCache source builds and experiment commands, follow the [AsymCache Artifact guide](../../README.md).
+
 This repository contains the source code and profiling scripts for POD-Attention. POD-Attention fuses prefill and decode attention kernels into a single optimized kernel that aims to saturate both GPU compute and memory simultaneously &mdash; critical for hybrid-batching-based LLM inference.
 Two alternative versions are available of POD-Attention, built on top of either (1) FlashAttention v2.6.1 [this repo] or (2) default FlashInfer
 (https://github.com/flashinfer-ai/flashinfer). POD-Attention has been integrated with Sarathi-Serve &mdash; a state-of-the-art hybrid-batching-based LLM inference scheduler. This repo contains the source code of POD-Attention, benchmarks for evaluation, and all scripts needed to replicate results reported in the paper.
@@ -51,7 +53,7 @@ $ cd /workspace/vattention/pod_attn
 ## Manual installation
 For manual installation, we can download POD-Attention to the home directory to install it. 
 We use Anaconda to obtain the appropriate versions of CUDA, Python, and PyTorch. 
-This can take up to 2 hours.
+Allow two hours for the source build.
 ```sh
 $ git clone \
   https://github.com/microsoft/vattention.git
@@ -101,7 +103,7 @@ Arguments:
             k with k_cache_d, starting at the indices specified by cache_seqlens_d.
     v [optional]: (batch_size_d, seqlen_new, nheads_k, headdim). Similar to k.
     rotary_cos [optional]: (seqlen_ro, rotary_dim / 2). If not None, we apply rotary embedding
-            to k and q. Only applicable if k and v are passed in. rotary_dim must be divisible by 16.
+            to k and q when k and v are passed in. rotary_dim must be divisible by 16.
     rotary_sin [optional]: (seqlen_ro, rotary_dim / 2). Similar to rotary_cos.
     cache_seqlens_p: int, or (batch_size,), dtype torch.int32. The sequence lengths of the
             prefill KV cache.
@@ -109,14 +111,13 @@ Arguments:
             decode KV cache.
     cache_batch_idx: (batch_size,), dtype torch.int32. The indices used to index into the decode KV cache.
             If None, we assume that the batch indices are [0, 1, 2, ..., batch_size - 1].
-            If the indices are not distinct, and k and v are provided, the values updated in the cache
-                 might come from any of the duplicate indices.
+            Use distinct indices to select a unique destination for each cache update.
     softmax_scale: float. The scaling of QK^T before applying softmax.
             Default to 1 / sqrt(headdim).
-    causal: bool. Whether to apply causal attention mask for prefill (decode cannot apply causal mask)
-            (e.g., for auto-regressive modeling).
+    causal: bool. Applies the causal attention mask to prefill for auto-regressive modeling.
+            Decode attends to the available KV cache.
     window_size: (left, right). If not (-1, -1), implements sliding window local attention.
-    rotary_interleaved: bool. Only applicable if rotary_cos and rotary_sin are passed in.
+    rotary_interleaved: bool. Controls dimension pairing when rotary_cos and rotary_sin are passed in.
             If True, rotary embedding will combine dimensions 0 & 1, 2 & 3, etc. If False,
             rotary embedding will combine dimensions 0 & rotary_dim / 2, 1 & rotary_dim / 2 + 1
             (i.e. GPT-NeoX style).
